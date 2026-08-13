@@ -256,6 +256,25 @@
     border-color: var(--navy);
     color: #fff;
   }
+  .refresh-btn{
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--teal);
+    background: var(--paper);
+    color: var(--teal);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .refresh-btn:hover{ background: rgba(28,124,130,0.08); }
+  .refresh-btn:disabled{ opacity: 0.55; cursor: default; }
+  .refresh-btn svg{ width: 13px; height: 13px; transition: transform .5s ease; }
+  .refresh-btn.spinning svg{ animation: spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
 
   .cards{
     display: grid;
@@ -354,6 +373,50 @@
 
   @media (prefers-reduced-motion: reduce){
     .tide-fill, .progress-fill{ transition: none; animation: none; }
+    .refresh-btn.spinning svg{ animation: none; }
+  }
+
+  /* ===== Connection badge ===== */
+  .conn-badge{
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .conn-badge::before{
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .conn-badge.live{ color: #6FD19A; }
+  .conn-badge.sample{ color: #D9A441; }
+  .conn-badge.loading{ color: #9FB4BE; }
+  .conn-badge.error{ color: #E38066; }
+
+  /* ===== Skeleton loading ===== */
+  .skel{
+    background: linear-gradient(90deg, #EFEAE0 25%, #F6F2E9 37%, #EFEAE0 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer{
+    0%{ background-position: 100% 50%; }
+    100%{ background-position: 0 50%; }
+  }
+  .empty-state{
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 14px;
   }
 </style>
 </head>
@@ -361,17 +424,17 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow">BPS Provinsi Kepulauan Bangka Belitung</div>
+    <div class="eyebrow">BPS Provinsi Kepulauan Bangka Belitung <span class="conn-badge loading" id="connBadge">Memuat…</span></div>
     <h1>Monitoring pendataan <em>Susenas</em><br>per kabupaten/kota</h1>
     <p class="sub">Pantau progres realisasi sampel rumah tangga Survei Sosial Ekonomi Nasional di tujuh kabupaten/kota se-Kepulauan Bangka Belitung, diperbarui oleh petugas lapangan.</p>
 
     <div class="hero-grid">
       <div class="tide-panel">
-        <div class="label">Progress pendataan — progres per wilayah</div>
+        <div class="label">Progres Pendataan Susenas — progres per wilayah</div>
         <div class="tide-row" id="tideRow"></div>
       </div>
       <div style="color:#C9D3D8; font-size:13px; line-height:1.7;">
-        Setiap kolom mewakili satu kabupaten/kota.
+        Setiap kolom mewakili satu kabupaten/kota..
       </div>
     </div>
   </div>
@@ -388,28 +451,49 @@
         <h2>Progres per kabupaten/kota</h2>
         <p>Klik filter untuk menyaring wilayah berdasarkan status penyelesaian.</p>
       </div>
-      <div class="filters" id="filterBtns">
-        <button class="filter-btn active" data-filter="semua">Semua</button>
-        <button class="filter-btn" data-filter="selesai">Selesai</button>
-        <button class="filter-btn" data-filter="proses">Proses</button>
-        <button class="filter-btn" data-filter="perhatian">Perlu perhatian</button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div class="filters" id="filterBtns">
+          <button class="filter-btn active" data-filter="semua">Semua</button>
+          <button class="filter-btn" data-filter="selesai">Selesai</button>
+          <button class="filter-btn" data-filter="proses">Proses</button>
+          <button class="filter-btn" data-filter="perhatian">Perlu perhatian</button>
+        </div>
+        <button class="refresh-btn" id="refreshBtn" title="Muat ulang data dari spreadsheet">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.2h-3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Muat ulang
+        </button>
       </div>
     </div>
 
-    <div class="cards" id="kabCards"></div>
+    <div class="cards" id="kabCards">
+      <div class="skel" style="height:150px;"></div>
+      <div class="skel" style="height:150px;"></div>
+      <div class="skel" style="height:150px;"></div>
+    </div>
   </div>
 </main>
 
 <footer>
   <div class="wrap foot-row">
-    <div>Data contoh untuk uji coba. Perbarui angka di variabel <code>DATA</code> pada berkas <code>index.html</code> untuk memakai data lapangan sesungguhnya.</div>
+    <div id="sourceNote">Sumber data: <code>CONFIG.API_URL</code> belum diisi — menampilkan data contoh.</div>
     <div id="lastUpdate"></div>
   </div>
 </footer>
 
 <script>
-  // ======= DATA SAMPEL — ubah bagian ini dengan data lapangan sesungguhnya =======
-  const DATA = [
+  // ============================================================================
+  // KONFIGURASI — sambungkan ke Google Apps Script (code.gs) di sini.
+  // Isi dengan URL hasil Deploy > Web app (diakhiri "/exec").
+  // Kosongkan ("") untuk memakai data contoh di bawah (mode offline/uji coba).
+  // ============================================================================
+  const CONFIG = {
+    API_URL: "",                 // contoh: "https://script.google.com/macros/s/XXXXXXXX/exec"
+    USE_JSONP: false,             // set true jika fetch biasa terblokir CORS di browser tertentu
+    AUTO_REFRESH_MINUTES: 5,      // 0 untuk mematikan pembaruan otomatis
+  };
+
+  // ======= DATA CONTOH — dipakai saat CONFIG.API_URL kosong atau gagal dimuat =======
+  const SAMPLE_DATA = [
     { nama: "Kota Pangkalpinang",       ibukota: "Pangkalpinang", target: 320, realisasi: 320 },
     { nama: "Kabupaten Bangka",          ibukota: "Sungailiat",    target: 480, realisasi: 456 },
     { nama: "Kabupaten Bangka Barat",    ibukota: "Mentok",        target: 360, realisasi: 288 },
@@ -418,97 +502,215 @@
     { nama: "Kabupaten Belitung",        ibukota: "Tanjung Pandan",target: 300, realisasi: 300 },
     { nama: "Kabupaten Belitung Timur",  ibukota: "Manggar",       target: 280, realisasi: 140 },
   ];
-  const LAST_UPDATE = "13 Agustus 2026"; // ubah sesuai tanggal pembaruan terakhir
-  // =================================================================================
+  const SAMPLE_LAST_UPDATE = "13 Agustus 2026";
+  // =====================================================================================
 
-  function pct(row){ return Math.round((row.realisasi / row.target) * 1000) / 10; }
-  function status(p){
+  const STATUS_LABEL = { selesai: "Selesai", proses: "Proses", perhatian: "Perlu perhatian" };
+  const STATUS_COLOR = { selesai: "var(--green)", proses: "var(--amber)", perhatian: "var(--coral)" };
+  // Memetakan label status dari code.gs (Indonesia, huruf besar) ke kunci internal di sini
+  const STATUS_KEY_FROM_API = { "Selesai": "selesai", "Proses": "proses", "Perlu Perhatian": "perhatian" };
+
+  function hitungPct(target, realisasi){
+    if (!target) return 0;
+    return Math.round((realisasi / target) * 1000) / 10;
+  }
+  function hitungStatus(p){
     if (p >= 100) return "selesai";
     if (p >= 70) return "proses";
     return "perhatian";
   }
-  const STATUS_LABEL = { selesai: "Selesai", proses: "Proses", perhatian: "Perlu perhatian" };
-  const STATUS_COLOR = { selesai: "var(--green)", proses: "var(--amber)", perhatian: "var(--coral)" };
 
-  const rows = DATA.map(r => ({ ...r, pct: pct(r), status: status(pct(r)) }));
+  /** Menyamakan data dari code.gs (payload.data) maupun data contoh lokal jadi satu bentuk. */
+  function normalisasi(item){
+    const target = Number(item.target) || 0;
+    const realisasi = Number(item.realisasi) || 0;
+    const p = (item.persentase !== undefined) ? item.persentase : hitungPct(target, realisasi);
+    const status = item.status ? (STATUS_KEY_FROM_API[item.status] || hitungStatus(p)) : hitungStatus(p);
+    return { nama: item.nama, ibukota: item.ibukota, target, realisasi, pct: p, status };
+  }
 
-  // ---- Tide gauge ----
-  const tideRow = document.getElementById("tideRow");
-  rows.forEach(r => {
-    const col = document.createElement("div");
-    col.className = "tide-col";
-    col.innerHTML = `
-      <div class="tide-gauge">
-        <div class="tide-fill" style="--pct:${Math.min(r.pct,100)}; --fill-color:${STATUS_COLOR[r.status]}"></div>
+  let rows = [];
+  let currentFilter = "semua";
+
+  const els = {
+    tideRow: document.getElementById("tideRow"),
+    statCards: document.getElementById("statCards"),
+    kabCards: document.getElementById("kabCards"),
+    connBadge: document.getElementById("connBadge"),
+    lastUpdate: document.getElementById("lastUpdate"),
+    sourceNote: document.getElementById("sourceNote"),
+    refreshBtn: document.getElementById("refreshBtn"),
+  };
+
+  function setConnBadge(state, text){
+    els.connBadge.className = "conn-badge " + state;
+    els.connBadge.textContent = text;
+  }
+
+  // ---- Render: tide gauge ----
+  function renderTide(){
+    els.tideRow.innerHTML = "";
+    rows.forEach(r => {
+      const col = document.createElement("div");
+      col.className = "tide-col";
+      col.innerHTML = `
+        <div class="tide-gauge">
+          <div class="tide-fill" style="--pct:${Math.min(r.pct,100)}; --fill-color:${STATUS_COLOR[r.status]}"></div>
+        </div>
+        <div class="tide-pct">${r.pct}%</div>
+        <div class="tide-name">${r.nama.replace(/^Kabupaten |^Kota /,'')}</div>
+      `;
+      els.tideRow.appendChild(col);
+    });
+  }
+
+  // ---- Render: stat cards ----
+  function renderStats(){
+    const totalTarget = rows.reduce((s,r)=>s+r.target,0);
+    const totalRealisasi = rows.reduce((s,r)=>s+r.realisasi,0);
+    const overallPct = hitungPct(totalTarget, totalRealisasi);
+    const selesaiCount = rows.filter(r=>r.status==="selesai").length;
+    const perhatianCount = rows.filter(r=>r.status==="perhatian").length;
+
+    els.statCards.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Realisasi keseluruhan</div>
+        <div class="stat-value">${overallPct}%</div>
+        <div class="stat-note">${totalRealisasi.toLocaleString('id-ID')} dari ${totalTarget.toLocaleString('id-ID')} rumah tangga</div>
       </div>
-      <div class="tide-pct">${r.pct}%</div>
-      <div class="tide-name">${r.nama.replace(/^Kabupaten |^Kota /,'')}</div>
+      <div class="stat-card">
+        <div class="stat-label">Kabupaten/kota selesai</div>
+        <div class="stat-value">${selesaiCount} / ${rows.length}</div>
+        <div class="stat-note">Realisasi mencapai 100% target</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Perlu perhatian</div>
+        <div class="stat-value">${perhatianCount}</div>
+        <div class="stat-note">Realisasi di bawah 70% target</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sisa sampel</div>
+        <div class="stat-value">${(totalTarget-totalRealisasi).toLocaleString('id-ID')}</div>
+        <div class="stat-note">Rumah tangga belum terdata</div>
+      </div>
     `;
-    tideRow.appendChild(col);
-  });
+  }
 
-  // ---- Stat cards ----
-  const totalTarget = rows.reduce((s,r)=>s+r.target,0);
-  const totalRealisasi = rows.reduce((s,r)=>s+r.realisasi,0);
-  const overallPct = Math.round((totalRealisasi/totalTarget)*1000)/10;
-  const selesaiCount = rows.filter(r=>r.status==="selesai").length;
-  const perhatianCount = rows.filter(r=>r.status==="perhatian").length;
-
-  const statCards = document.getElementById("statCards");
-  statCards.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-label">Realisasi keseluruhan</div>
-      <div class="stat-value">${overallPct}%</div>
-      <div class="stat-note">${totalRealisasi.toLocaleString('id-ID')} dari ${totalTarget.toLocaleString('id-ID')} rumah tangga</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Kabupaten/kota selesai</div>
-      <div class="stat-value">${selesaiCount} / ${rows.length}</div>
-      <div class="stat-note">Realisasi mencapai 100% target</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Perlu perhatian</div>
-      <div class="stat-value">${perhatianCount}</div>
-      <div class="stat-note">Realisasi di bawah 70% target</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Sisa sampel</div>
-      <div class="stat-value">${(totalTarget-totalRealisasi).toLocaleString('id-ID')}</div>
-      <div class="stat-note">Rumah tangga belum terdata</div>
-    </div>
-  `;
-
-  // ---- Kab/kota cards ----
-  const kabCards = document.getElementById("kabCards");
+  // ---- Render: kab/kota cards ----
   function renderCards(filter){
-    kabCards.innerHTML = "";
-    rows
+    if (filter) currentFilter = filter;
+    els.kabCards.innerHTML = "";
+
+    const filtered = rows
       .slice()
       .sort((a,b)=> b.pct - a.pct)
-      .filter(r => filter === "semua" || r.status === filter)
-      .forEach(r => {
-        const card = document.createElement("div");
-        card.className = "kab-card";
-        card.innerHTML = `
-          <div class="kab-top">
-            <div>
-              <h3>${r.nama}</h3>
-              <div class="ibukota">Ibu kota: ${r.ibukota}</div>
-            </div>
-            <span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span>
+      .filter(r => currentFilter === "semua" || r.status === currentFilter);
+
+    if (filtered.length === 0){
+      els.kabCards.innerHTML = `<div class="empty-state">Tidak ada kabupaten/kota pada status ini.</div>`;
+      return;
+    }
+
+    filtered.forEach(r => {
+      const card = document.createElement("div");
+      card.className = "kab-card";
+      card.innerHTML = `
+        <div class="kab-top">
+          <div>
+            <h3>${r.nama}</h3>
+            <div class="ibukota">Ibu kota: ${r.ibukota || "-"}</div>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" style="width:${Math.min(r.pct,100)}%; background:${STATUS_COLOR[r.status]}"></div>
-          </div>
-          <div class="kab-numbers">
-            <span class="pct">${r.pct}%</span>
-            <span class="detail">${r.realisasi.toLocaleString('id-ID')} / ${r.target.toLocaleString('id-ID')} RT</span>
-          </div>
-        `;
-        kabCards.appendChild(card);
-      });
+          <span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${Math.min(r.pct,100)}%; background:${STATUS_COLOR[r.status]}"></div>
+        </div>
+        <div class="kab-numbers">
+          <span class="pct">${r.pct}%</span>
+          <span class="detail">${r.realisasi.toLocaleString('id-ID')} / ${r.target.toLocaleString('id-ID')} RT</span>
+        </div>
+      `;
+      els.kabCards.appendChild(card);
+    });
   }
-  renderCards("semua");
+
+  function renderAll(){
+    renderTide();
+    renderStats();
+    renderCards();
+  }
+
+  // ---- Sumber data: sample lokal ----
+  function pakaiDataContoh(alasan){
+    rows = SAMPLE_DATA.map(normalisasi);
+    renderAll();
+    els.lastUpdate.textContent = `Terakhir diperbarui: ${SAMPLE_LAST_UPDATE} (data contoh)`;
+    els.sourceNote.textContent = alasan || "Sumber data: contoh lokal.";
+    setConnBadge("sample", "Data contoh");
+  }
+
+  // ---- Sumber data: Apps Script (fetch biasa) ----
+  async function ambilViaFetch(){
+    const res = await fetch(CONFIG.API_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }
+
+  // ---- Sumber data: Apps Script (JSONP, jaga-jaga bila fetch kena CORS) ----
+  function ambilViaJsonp(){
+    return new Promise((resolve, reject) => {
+      const cbName = "__susenasCallback" + Date.now();
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("Waktu tunggu JSONP habis"));
+      }, 12000);
+      function cleanup(){
+        clearTimeout(timeout);
+        delete window[cbName];
+        script.remove();
+      }
+      window[cbName] = (payload) => { cleanup(); resolve(payload); };
+      const script = document.createElement("script");
+      script.src = CONFIG.API_URL + (CONFIG.API_URL.includes("?") ? "&" : "?") + "callback=" + cbName;
+      script.onerror = () => { cleanup(); reject(new Error("Gagal memuat skrip JSONP")); };
+      document.body.appendChild(script);
+    });
+  }
+
+  async function muatData(isManualRefresh){
+    if (!CONFIG.API_URL){
+      pakaiDataContoh('Sumber data: <code>CONFIG.API_URL</code> belum diisi — menampilkan data contoh.');
+      return;
+    }
+
+    setConnBadge("loading", "Memuat…");
+    if (isManualRefresh){
+      els.refreshBtn.disabled = true;
+      els.refreshBtn.classList.add("spinning");
+    }
+
+    try {
+      const payload = CONFIG.USE_JSONP ? await ambilViaJsonp() : await ambilViaFetch();
+      if (payload.error) throw new Error(payload.error);
+      if (!Array.isArray(payload.data) || payload.data.length === 0) throw new Error("Data kosong");
+
+      rows = payload.data.map(normalisasi);
+      renderAll();
+
+      els.lastUpdate.textContent = `Terakhir diperbarui: ${payload.terakhirDiperbarui || "-"}`;
+      els.sourceNote.innerHTML = `Sumber data: spreadsheet langsung (${payload.provinsi || "Bangka Belitung"}).`;
+      setConnBadge("live", "Terhubung ke spreadsheet");
+    } catch (err){
+      console.error("Gagal memuat data dari Apps Script:", err);
+      pakaiDataContoh('Sumber data: gagal terhubung ke spreadsheet — menampilkan data contoh.');
+      setConnBadge("error", "Gagal terhubung");
+    } finally {
+      if (isManualRefresh){
+        els.refreshBtn.disabled = false;
+        els.refreshBtn.classList.remove("spinning");
+      }
+    }
+  }
 
   document.getElementById("filterBtns").addEventListener("click", (e) => {
     const btn = e.target.closest(".filter-btn");
@@ -518,7 +720,13 @@
     renderCards(btn.dataset.filter);
   });
 
-  document.getElementById("lastUpdate").textContent = `Terakhir diperbarui: ${LAST_UPDATE}`;
+  els.refreshBtn.addEventListener("click", () => muatData(true));
+
+  muatData(false);
+
+  if (CONFIG.API_URL && CONFIG.AUTO_REFRESH_MINUTES > 0){
+    setInterval(() => muatData(false), CONFIG.AUTO_REFRESH_MINUTES * 60 * 1000);
+  }
 </script>
 
 </body>
